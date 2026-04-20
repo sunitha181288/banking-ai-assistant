@@ -1,0 +1,31 @@
+# Backend Python dependencies
+# Install all with: pip install -r requirements.txt
+
+# Web framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0      # ASGI server to run FastAPI
+
+# Anthropic Claude API
+anthropic==0.18.1
+
+# RAG & Embeddings
+sentence-transformers==2.3.1   # converts text to vectors
+pinecone-client==3.0.0         # vector database
+langchain==0.1.4               # RAG orchestration helpers
+
+# Database
+sqlalchemy==2.0.25             # ORM for PostgreSQL
+psycopg2-binary==2.9.9         # PostgreSQL driver
+alembic==1.13.1                # database migrations
+
+# PDF parsing
+pymupdf==1.23.8                # PDF text extraction
+
+# Caching
+redis==5.0.1                   # Redis client for conversation cache
+
+# Utilities
+python-dotenv==1.0.0           # loads .env file
+python-multipart==0.0.6        # file upload support
+pydantic==2.5.3                # data validation
+httpx==0.26.0                  # async HTTP client
