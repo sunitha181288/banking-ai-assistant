@@ -62,7 +62,7 @@ async def run_agent(task: str, max_iterations: int = 8) -> AsyncGenerator[dict, 
         # We pass all tool definitions so Claude knows what's available
         # Claude will return either text OR tool_use blocks
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5",
             max_tokens=1500,
             system=AGENT_SYSTEM_PROMPT,
             tools=TOOL_DEFINITIONS,

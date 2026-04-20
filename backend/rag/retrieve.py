@@ -1,99 +1,41 @@
-# rag/retrieve.py
-# ──────────────────────────────────────────────
-# WHAT THIS FILE DOES:
-# Given a user's question, finds the most relevant
-# document chunks from Pinecone using semantic search.
-#
-# HOW SEMANTIC SEARCH WORKS:
-# 1. Convert the question to a vector (same model used in ingest)
-# 2. Ask Pinecone: "which stored vectors are closest to this?"
-# 3. Return the top K most similar chunks
-#
-# SEMANTIC vs KEYWORD search:
-# Keyword: "loan rate" only matches text containing those exact words
-# Semantic: "loan rate" also matches "borrowing interest percentage"
-#           because they MEAN the same thing in vector space
-# ──────────────────────────────────────────────
-
 from typing import List, Dict
-from sentence_transformers import SentenceTransformer
-from vectorstore import get_pinecone_index
+from rag.vectorstore import search_chunks, _memory_store
 
-# Use the SAME embedding model as ingest — critical!
-# If you embed with model A and search with model B, results are meaningless
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+try:
+    from sentence_transformers import SentenceTransformer
+    _model = SentenceTransformer("all-MiniLM-L6-v2")
+    _use_embeddings = True
+except Exception:
+    _model = None
+    _use_embeddings = False
 
+def retrieve_relevant_chunks(query, top_k=3, source_filter=None):
+    if _use_embeddings:
+        query_vector = _model.encode(query).tolist()
+        return search_chunks(query_vector, top_k, source_filter)
+    return _keyword_search(query, top_k)
 
-def retrieve_relevant_chunks(
-    query: str,
-    top_k: int = 3,
-    source_filter: str = None
-) -> List[Dict]:
-    """
-    Find the top_k most relevant document chunks for a query.
+def _keyword_search(query, top_k):
+    if not _memory_store:
+        return []
+    stop = {'what','when','where','which','that','this','have','with','from',
+            'your','does','will','about','their','how','the','and','for','are','can','you','my','is'}
+    qwords = set(w.lower() for w in query.replace('?','').split() if len(w)>3 and w.lower() not in stop)
+    scored = []
+    for chunk in _memory_store:
+        cwords = chunk["text"].lower().split()
+        score = sum(1 for q in qwords for c in cwords if q in c or c in q)
+        if score > 0:
+            scored.append({"text": chunk["text"], "source": chunk["source"],
+                           "chunk_index": chunk["chunk_index"],
+                           "score": round(score/max(len(qwords),1), 3)})
+    scored.sort(key=lambda x: x["score"], reverse=True)
+    return scored[:top_k]
 
-    Args:
-        query: The user's question
-        top_k: How many chunks to return (3 is usually enough)
-        source_filter: Optionally limit to one document
-
-    Returns:
-        List of dicts with 'text', 'source', 'score'
-    """
-    # Step 1: Convert query to vector
-    # This is the same process as ingestion — same model, same dimensions
-    query_vector = embedding_model.encode(query).tolist()
-
-    # Step 2: Search Pinecone for similar vectors
-    # include_metadata=True means return the original text alongside the vector
-    index = get_pinecone_index()
-
-    search_params = {
-        "vector": query_vector,
-        "top_k": top_k,
-        "include_metadata": True
-    }
-
-    # Optionally filter by source document
-    if source_filter:
-        search_params["filter"] = {"source": source_filter}
-
-    results = index.query(**search_params)
-
-    # Step 3: Format and return results
-    chunks = []
-    for match in results.matches:
-        chunks.append({
-            "text": match.metadata.get("text", ""),
-            "source": match.metadata.get("source", "unknown"),
-            "chunk_index": match.metadata.get("chunk_index", 0),
-            "score": round(match.score, 3)  # similarity score 0-1
-        })
-
-    return chunks
-
-
-def build_context_block(chunks: List[Dict]) -> str:
-    """
-    Format retrieved chunks into a text block
-    that gets injected into the AI's prompt.
-
-    Example output:
-    [Source: loan_policy.txt]
-    Our personal loan rates start at 5.5% p.a...
-
-    [Source: faq.txt]
-    To apply for a loan, visit any branch with...
-    """
+def build_context_block(chunks):
     if not chunks:
         return ""
-
-    context = "\n\nRELEVANT DOCUMENT CONTEXT:\n"
-    context += "=" * 40 + "\n"
-
-    for chunk in chunks:
-        context += f"\n[Source: {chunk['source']} | Relevance: {chunk['score']}]\n"
-        context += chunk["text"] + "\n"
-
-    context += "=" * 40 + "\n"
-    return context
+    ctx = "\n\nRELEVANT DOCUMENT CONTEXT:\n" + "="*40 + "\n"
+    for c in chunks:
+        ctx += f"\n[Source: {c['source']} | Relevance: {c['score']}]\n{c['text']}\n"
+    return ctx + "="*40 + "\n"
