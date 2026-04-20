@@ -12,8 +12,8 @@ psycopg2-binary==2.9.9
 anthropic==0.40.0
 sentence-transformers==2.3.1
 
-# Vector store
-pinecone-client==3.0.0
+# Vector store (updated version that works on Python 3.11)
+pinecone==5.0.1
 
 # Pydantic
 pydantic==2.5.3

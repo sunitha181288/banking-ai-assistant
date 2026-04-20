@@ -11,7 +11,8 @@ def store_chunks(vectors):
         from pinecone import Pinecone, ServerlessSpec
         pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
         index_name = os.getenv("PINECONE_INDEX_NAME", "banking-kb")
-        if index_name not in pc.list_indexes().names():
+        existing = [i.name for i in pc.list_indexes()]
+        if index_name not in existing:
             pc.create_index(name=index_name, dimension=384, metric="cosine",
                 spec=ServerlessSpec(cloud="aws", region=os.getenv("PINECONE_ENVIRONMENT","us-east-1")))
         index = pc.Index(index_name)
