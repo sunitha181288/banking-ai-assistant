@@ -1,0 +1,78 @@
+# docker-compose.yml
+# ──────────────────────────────────────────────
+# WHAT THIS FILE DOES:
+# Defines all the services that make up this application
+# and how they connect to each other.
+# Run everything with: docker-compose up --build
+#
+# SERVICES:
+# - frontend  → Next.js React app (port 3000)
+# - backend   → FastAPI Python server (port 8000)
+# - db        → PostgreSQL database (port 5432)
+# - redis     → Redis cache (port 6379)
+# ──────────────────────────────────────────────
+
+version: "3.9"
+
+services:
+
+  # ── FRONTEND (Next.js) ─────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"             # access at http://localhost:3000
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+    depends_on:
+      - backend                 # wait for backend to start first
+    volumes:
+      - ./frontend:/app         # live reload during development
+      - /app/node_modules       # don't overwrite node_modules
+
+  # ── BACKEND (FastAPI) ──────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"             # access API at http://localhost:8000
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT}
+      - PINECONE_INDEX_NAME=${PINECONE_INDEX_NAME}
+      - DATABASE_URL=postgresql://nexauser:nexapass@db:5432/nexabank
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./backend:/app          # live reload during development
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ── POSTGRESQL ─────────────────────────────
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=nexauser
+      - POSTGRES_PASSWORD=nexapass
+      - POSTGRES_DB=nexabank
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data    # persist data between restarts
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
+  # ── REDIS ──────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
