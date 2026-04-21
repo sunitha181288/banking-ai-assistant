@@ -1,15 +1,18 @@
-// frontend/src/pages/_app.jsx
-// ──────────────────────────────────────────────
-// WHAT THIS FILE DOES:
-// Next.js requires this file — it wraps EVERY page.
-// Think of it as the "frame" around all your pages.
-// Global CSS is imported here so it applies everywhere.
-// ──────────────────────────────────────────────
-
+import Head from "next/head";
 import "../styles/globals.css";
 
 export default function App({ Component, pageProps }) {
-  // Component = the current page being rendered (ChatPage, PromptLab, etc.)
-  // pageProps = any props passed to that page
-  return <Component {...pageProps} />;
+  return (
+    <>
+      <Head>
+        {/* Critical for mobile — prevents zooming and sets correct width */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        <meta name="theme-color" content="#030712" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <title>NexaBank AI — Contact Center Intelligence</title>
+      </Head>
+      <Component {...pageProps} />
+    </>
+  );
 }

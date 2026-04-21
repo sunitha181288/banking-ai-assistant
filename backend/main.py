@@ -11,23 +11,20 @@ from database import engine, Base
 
 try:
     Base.metadata.create_all(bind=engine)
-    print("INFO:     Database tables ready")
+    print("INFO:     Database tables ready ✅")
 except Exception as e:
     print(f"WARNING:  Could not create DB tables: {e}")
 
 app = FastAPI(
     title="NexaBank AI API",
-    description="Banking Contact Center AI — RAG + Prompt Tuning + Agentic AI",
+    description="Banking Contact Center AI",
     version="2.0.0"
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://banking-ai-assistant.vercel.app",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],   # Allow all origins — safe for development
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

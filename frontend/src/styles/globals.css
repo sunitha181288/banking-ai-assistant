@@ -1,56 +1,58 @@
-/* frontend/src/styles/globals.css */
-/* ──────────────────────────────────────────────
-   WHAT THIS FILE DOES:
-   Loads Tailwind CSS into the project.
-   These 3 lines are required for Tailwind to work.
-   They inject all of Tailwind's utility classes.
-   ────────────────────────────────────────────── */
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Global base styles */
-* {
-  box-sizing: border-box;
+/* Fix mobile viewport height — 100vh breaks on iPhone Safari */
+:root {
+  --vh: 1vh;
 }
 
-html,
-body,
-#__next {
+* { box-sizing: border-box; }
+
+html {
+  height: 100%;
+  /* Prevent horizontal scroll on mobile */
+  overflow-x: hidden;
+}
+
+body, #__next {
   height: 100%;
   margin: 0;
   padding: 0;
+  /* Prevent bounce scroll on iOS */
+  overscroll-behavior: none;
 }
 
-/* Custom scrollbar — thin and dark to match the UI */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 2px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+/* Prevent text size adjust on iOS rotation */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
-/* Smooth animations for agent log entries */
+/* Better tap targets on mobile */
+button, a {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Smooth scrolling */
+* { scroll-behavior: smooth; }
+
+/* Custom thin scrollbar */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+
+/* Hide scrollbar on mobile horizontal scroll */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Fade up animation */
 @keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+.animate-fadeUp { animation: fadeUp 0.25s ease; }
 
-.animate-fadeUp {
-  animation: fadeUp 0.25s ease;
-}
+/* Safe area padding for iPhone notch/home bar */
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
