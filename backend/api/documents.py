@@ -1,98 +1,76 @@
-# api/documents.py
-# ──────────────────────────────────────────────
-# WHAT THIS FILE DOES:
-# Handles document upload from the frontend.
-# Accepts .txt, .pdf, .md files,
-# extracts the text, and passes to the RAG pipeline.
-# ──────────────────────────────────────────────
-
-from fastapi import APIRouter, UploadFile, File, HTTPException
+import os
+from fastapi import APIRouter, UploadFile, File, HTTPException, Request
+from fastapi.responses import JSONResponse
 from typing import List
-import io
-
 from rag.ingest import ingest_document
+from rag.vectorstore import delete_source, use_pinecone
 
 router = APIRouter()
 
+# Handle preflight OPTIONS request explicitly
+@router.options("/upload")
+async def upload_options():
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 @router.post("/upload")
 async def upload_document(files: List[UploadFile] = File(...)):
-    """
-    Upload one or more documents to the knowledge base.
-    Supports .txt, .pdf, .md files.
-    Returns chunk count for each file.
-    """
     results = []
-
     for file in files:
-        # Validate file type
         allowed = [".txt", ".pdf", ".md"]
-        if not any(file.filename.endswith(ext) for ext in allowed):
+        if not any(file.filename.lower().endswith(ext) for ext in allowed):
             raise HTTPException(
                 status_code=400,
                 detail=f"File type not supported: {file.filename}. Use .txt, .pdf, or .md"
             )
-
-        # Read file content
         content = await file.read()
-
-        # Extract text based on file type
-        if file.filename.endswith(".pdf"):
+        if file.filename.lower().endswith(".pdf"):
             text = _extract_pdf_text(content)
         else:
-            # .txt and .md are plain text
             text = content.decode("utf-8", errors="ignore")
 
         if not text.strip():
-            raise HTTPException(status_code=400, detail=f"Could not extract text from {file.filename}")
-
-        # Ingest into RAG pipeline (chunk + embed + store in Pinecone)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Could not extract text from {file.filename}"
+            )
         result = ingest_document(text, file.filename)
         results.append(result)
 
-    return {"uploaded": len(results), "documents": results}
-
+    return JSONResponse(
+        content={"uploaded": len(results), "documents": results},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
 
 @router.delete("/{filename}")
 def delete_document(filename: str):
-    """
-    Remove a document from the knowledge base.
-    Deletes all vectors for this source from Pinecone.
-    """
-    from rag.vectorstore import get_pinecone_index
-    index = get_pinecone_index()
-
-    # Delete all vectors where source metadata matches filename
-    index.delete(filter={"source": filename})
+    delete_source(filename)
     return {"status": "deleted", "filename": filename}
-
 
 @router.get("/list")
 def list_documents():
-    """List all documents currently in the knowledge base."""
-    from rag.vectorstore import get_pinecone_index
-    index = get_pinecone_index()
-    stats = index.describe_index_stats()
-    return {
-        "total_vectors": stats.total_vector_count,
-        "index_fullness": stats.index_fullness
-    }
-
+    if use_pinecone():
+        from rag.vectorstore import get_pinecone_index
+        stats = get_pinecone_index().describe_index_stats()
+        return {"storage": "pinecone", "total_vectors": stats.total_vector_count}
+    else:
+        from rag.vectorstore import _memory_store
+        sources = list(set(c["source"] for c in _memory_store))
+        return {"storage": "local-memory", "total_chunks": len(_memory_store), "documents": sources}
 
 def _extract_pdf_text(content: bytes) -> str:
-    """
-    Extract plain text from a PDF file.
-    Uses PyMuPDF (fitz) — install with: pip install pymupdf
-    """
     try:
-        import fitz  # PyMuPDF
+        import fitz
         doc = fitz.open(stream=content, filetype="pdf")
-        text = ""
-        for page in doc:
-            text += page.get_text()
-        return text
+        return "".join(page.get_text() for page in doc)
     except ImportError:
         raise HTTPException(
             status_code=500,
-            detail="PDF support requires PyMuPDF. Install with: pip install pymupdf"
+            detail="PDF support requires PyMuPDF. Run: pip install pymupdf"
         )
