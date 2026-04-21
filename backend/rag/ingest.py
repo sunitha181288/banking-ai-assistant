@@ -1,58 +1,23 @@
-import os, uuid, re
+import uuid, re
 from typing import List
-from rag.vectorstore import store_chunks, use_pinecone
 
-# DO NOT load model at import time — too much memory on free servers
-# Load it only when first document is uploaded (lazy loading)
-_model = None
-_use_embeddings = None
-
-def get_model():
-    global _model, _use_embeddings
-    if _use_embeddings is not None:
-        return _model, _use_embeddings
-    try:
-        from sentence_transformers import SentenceTransformer
-        _model = SentenceTransformer("all-MiniLM-L6-v2")
-        _use_embeddings = True
-        print("INFO:     [RAG] Embeddings model loaded")
-    except Exception as e:
-        print(f"INFO:     [RAG] Using keyword search (no embeddings): {e}")
-        _model = None
-        _use_embeddings = False
-    return _model, _use_embeddings
-
-def ingest_document(text, filename):
+def ingest_document(text: str, filename: str) -> dict:
     chunks = chunk_text(text)
     print(f"INFO:     [Ingest] {filename} -> {len(chunks)} chunks")
 
-    model, use_emb = get_model()
-
-    if use_emb and model:
-        embeddings = model.encode(chunks, show_progress_bar=False)
-        vectors = [
-            {"id": f"{filename}-{i}-{uuid.uuid4().hex[:6]}",
-             "values": embeddings[i].tolist(),
-             "metadata": {"text": chunks[i], "source": filename, "chunk_index": i}}
-            for i in range(len(chunks))
-        ]
-    else:
-        vectors = [
-            {"id": f"{filename}-{i}-{uuid.uuid4().hex[:6]}",
-             "values": [0.0] * 384,
-             "metadata": {"text": chunks[i], "source": filename, "chunk_index": i}}
-            for i in range(len(chunks))
-        ]
-
+    from rag.vectorstore import store_chunks
+    vectors = [
+        {
+            "id": f"{filename}-{i}-{uuid.uuid4().hex[:6]}",
+            "values": [0.0] * 384,
+            "metadata": {"text": chunks[i], "source": filename, "chunk_index": i}
+        }
+        for i in range(len(chunks))
+    ]
     store_chunks(vectors)
-    return {
-        "filename": filename,
-        "chunks": len(chunks),
-        "status": "indexed",
-        "mode": "pinecone" if use_pinecone() else "local-memory"
-    }
+    return {"filename": filename, "chunks": len(chunks), "status": "indexed", "mode": "keyword-search"}
 
-def chunk_text(text, max_words=200):
+def chunk_text(text: str, max_words: int = 200) -> List[str]:
     sentences = re.split(r'(?<=[.!?])\s+', text)
     chunks, current, wc = [], [], 0
     for s in sentences:
@@ -64,4 +29,4 @@ def chunk_text(text, max_words=200):
         wc += w
     if current:
         chunks.append(" ".join(current))
-    return [c for c in chunks if len(c.split()) > 10]
+    return [c for c in chunks if len(c.split()) > 3]
