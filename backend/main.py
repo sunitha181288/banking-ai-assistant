@@ -11,7 +11,7 @@ from database import engine, Base
 # PostgreSQL: creates tables in your Postgres database
 try:
     Base.metadata.create_all(bind=engine)
-    print("INFO:     Database tables ready ✅")
+    print("INFO:     Database tables ready")
 except Exception as e:
     print(f"WARNING:  Could not create DB tables: {e}")
     print("WARNING:  App will start but conversation history won't be saved")
