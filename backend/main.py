@@ -11,19 +11,15 @@ from database import engine, Base
 
 try:
     Base.metadata.create_all(bind=engine)
-    print("INFO:     Database tables ready ✅")
+    print("INFO:     Database tables ready")
 except Exception as e:
     print(f"WARNING:  Could not create DB tables: {e}")
 
-app = FastAPI(
-    title="NexaBank AI API",
-    description="Banking Contact Center AI",
-    version="2.0.0"
-)
+app = FastAPI(title="NexaBank AI API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # Allow all origins — safe for development
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,7 +30,7 @@ app.include_router(documents_router, prefix="/api/documents", tags=["Document Up
 app.include_router(agent_router,     prefix="/api/agent",     tags=["Agentic AI"])
 
 @app.get("/")
-def health_check():
+def health():
     return {
         "status": "online",
         "anthropic_key_loaded": bool(os.getenv("ANTHROPIC_API_KEY")),
